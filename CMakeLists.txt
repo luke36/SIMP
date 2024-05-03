@@ -8,8 +8,9 @@ project (simp)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(SOURCES
-  main.cpp
+  math.cpp
   mesh.cpp
+  main.cpp
 )
 
 add_executable(main ${SOURCES})
@@ -17,7 +18,7 @@ add_executable(main ${SOURCES})
 target_compile_options(main
   PRIVATE
     -g
-    # -O2
+    -O2
     # -flto
     -Wall
     -Wextra

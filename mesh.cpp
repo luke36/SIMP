@@ -89,6 +89,20 @@ Face &Face::updateVertex(Point *x, Point *y) {
 // todo
 static void compute_optimal(const Vector3f &v1, const Vector3f &v2, const Quadric4f &Q,
                             Vector3f &opt, real &error) {
+  real m[4][4] = {{Q.q11, Q.q12, Q.q13, Q.q14},
+                  {Q.q12, Q.q22, Q.q23, Q.q24},
+                  {Q.q13, Q.q23, Q.q33, Q.q34},
+                  {0.0f,  0.0f,  0.0f,  1.0f}};
+  Matrix4f d(m);
+  std::optional<Matrix4f> &&inv = inverse(d);
+  if (inv) {
+    opt = Vector3f(inv.value().m[0][3],
+                   inv.value().m[1][3],
+                   inv.value().m[2][3]);
+    error = Q.apply(opt);
+    return;
+  }
+
   Vector3f mid = (v1 + v2) / 2;
   real
     error_1 = Q.apply(v1),
@@ -172,6 +186,7 @@ Mesh &Mesh::simplify(real percentage, real epsilon) {
       for (auto j = i + 1; j != x_sort.end() && (*j)->x - (*i)->x < epsilon; ++j) {
         if (distance(**i, **j) < epsilon) {
           add_pair(*i, *j, pairs, selected);
+          // std::cerr << distance(**i, **j) << ' ' << (*i)->x << std::endl;
         }
       }
     }
@@ -186,7 +201,7 @@ Mesh &Mesh::simplify(real percentage, real epsilon) {
     if (least_p->valid) {
       least_p->p1->merge(least_p->p2, least_p->opt, pairs);
       n_points -= 1;
-      // std::cerr << n_points << ' ';
+      // std::cerr << least_p->error << ' ';
     } else {
       pairs.erase(least);
     }

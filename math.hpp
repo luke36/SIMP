@@ -4,6 +4,7 @@
 #include "real.hpp"
 #include <cassert>
 #include <cmath>
+#include <optional>
 
 class Vector3f {
 public:
@@ -44,10 +45,19 @@ inline real distance(const Vector3f &v1, const Vector3f &v2) {
   return std::sqrt(d.x*d.x + d.y*d.y + d.z*d.z);
 }
 
+// taken from pbrt
+
+static inline real diff_prod(real a, real b, real c, real d) {
+  real cd = c * d;
+  real res = std::fma(a, b, -cd);
+  real error = std::fma(c, d, -cd);
+  return res + error;
+}
+
 inline Vector3f cross(const Vector3f &v1, const Vector3f &v2) {
-  return Vector3f(v1.y*v2.z - v1.z*v2.y,
-                  v1.z*v2.x - v1.x*v2.z,
-                  v1.x*v2.y - v1.y*v2.x);
+  return Vector3f(diff_prod(v1.y, v2.z, v1.z, v2.y),
+                  diff_prod(v1.z, v2.x, v1.x, v2.z),
+                  diff_prod(v1.x, v2.y, v1.y, v2.x));
 }
 
 inline real dot(const Vector3f &v1, const Vector3f &v2) {
@@ -101,4 +111,18 @@ public:
   }
 };
 
+class Matrix4f {
+public:
+  real m[4][4];
+
+  Matrix4f(real m_[4][4]) {
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 4; j++) {
+        m[i][j] = m_[i][j];
+      }
+    }
+  }
+};
+
+std::optional<Matrix4f> inverse(const Matrix4f &m);
 #endif

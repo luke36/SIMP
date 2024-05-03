@@ -10,13 +10,13 @@ int main(int argc, char *argv[]) {
   std::ifstream in(argv[1]);
   std::ofstream out(argv[2]);
   std::istringstream ratio_list(argv[3]);
-  std::istringstream tolerance(argv[4]);
+  std::istringstream threshold(argv[4]);
 
   real ratio;
   ratio_list >> ratio;
-  real tol;
-  tolerance >> tol;
+  real thres;
+  threshold >> thres;
   Mesh m(in);
-  m.simplify(ratio, tol);
+  m.simplify(ratio, thres);
   m.dump(out);
 }
