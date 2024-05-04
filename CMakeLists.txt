@@ -8,7 +8,7 @@ project (simp)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(SOURCES
-  math.cpp
+  # math.cpp
   mesh.cpp
   main.cpp
 )

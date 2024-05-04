@@ -59,6 +59,10 @@ Face::Face(Point *p1, Point *p2, Point *p3)
   p3->fs.emplace_back(this);
   Vector3f &&norm = cross(*p2 - *p1, *p3 - *p1);
   norm.normalize();
+  // check nan if the face is degenerate
+  if (!std::isnormal(norm.x) || !std::isnormal(norm.y) || !std::isnormal(norm.z)) {
+    return;
+  }
   real
     a = norm.x,
     b = norm.y,
@@ -201,7 +205,6 @@ Mesh &Mesh::simplify(real percentage, real epsilon) {
     if (least_p->valid) {
       least_p->p1->merge(least_p->p2, least_p->opt, pairs);
       n_points -= 1;
-      // std::cerr << least_p->error << ' ';
     } else {
       pairs.erase(least);
     }
@@ -248,6 +251,7 @@ Mesh::Mesh(std::istream &is) {
 
 void Mesh::dump(std::ostream &os, int precision) const {
   os << std::setprecision(precision);
+
   std::map<const Point *, size_t> number;
   size_t n = 0;
   for (const auto &p : points) {

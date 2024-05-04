@@ -124,5 +124,93 @@ public:
   }
 };
 
-std::optional<Matrix4f> inverse(const Matrix4f &m);
+// taken from pbrt
+
+static inline real scf(std::pair<real, real> cf) {
+  return cf.first + cf.second;
+}
+
+static inline std::pair<real, real> TwoProd(real a, real b) {
+    real ab = a * b;
+    return {ab, std::fma(a, b, -ab)};
+}
+
+static inline std::pair<real, real> TwoSum(real a, real b) {
+    real s = a + b, delta = s - a;
+    return {s, (a - (s - delta)) + (b - delta)};
+}
+
+template <typename real>
+static inline std::pair<real, real> InnerProduct(real a, real b) {
+    return TwoProd(a, b);
+}
+
+// Accurate dot products with FMA: Graillat et al.,
+// https://www-pequan.lip6.fr/~graillat/papers/posterRNC7.pdf
+//
+// Accurate summation, dot product and polynomial evaluation in complex
+// floating point arithmetic, Graillat and Menissier-Morain.
+template <typename real, typename... T>
+static inline std::pair<real, real> InnerProduct(real a, real b, T... terms) {
+    auto ab = TwoProd(a, b);
+    auto tp = InnerProduct(terms...);
+    auto sum = TwoSum(ab.first, tp.first);
+    return {sum.first, ab.second + (tp.second + sum.second)};
+}
+
+inline std::optional<Matrix4f> inverse(const Matrix4f &m) {
+  // Via: https://github.com/google/ion/blob/master/ion/math/matrixutils.cc,
+  // (c) Google, Apache license.
+
+  // For 4x4 do not compute the adjugate as the transpose of the cofactor
+  // matrix, because this results in extra work. Several calculations can be
+  // shared across the sub-determinants.
+  //
+  // This approach is explained in David Eberly's Geometric Tools book,
+  // excerpted here:
+  //   http://www.geometrictools.com/Documentation/LaplaceExpansionTheorem.pdf
+  real s0 = diff_prod(m.m[0][0], m.m[1][1], m.m[1][0], m.m[0][1]);
+  real s1 = diff_prod(m.m[0][0], m.m[1][2], m.m[1][0], m.m[0][2]);
+  real s2 = diff_prod(m.m[0][0], m.m[1][3], m.m[1][0], m.m[0][3]);
+
+  real s3 = diff_prod(m.m[0][1], m.m[1][2], m.m[1][1], m.m[0][2]);
+  real s4 = diff_prod(m.m[0][1], m.m[1][3], m.m[1][1], m.m[0][3]);
+  real s5 = diff_prod(m.m[0][2], m.m[1][3], m.m[1][2], m.m[0][3]);
+
+  real c0 = diff_prod(m.m[2][0], m.m[3][1], m.m[3][0], m.m[2][1]);
+  real c1 = diff_prod(m.m[2][0], m.m[3][2], m.m[3][0], m.m[2][2]);
+  real c2 = diff_prod(m.m[2][0], m.m[3][3], m.m[3][0], m.m[2][3]);
+
+  real c3 = diff_prod(m.m[2][1], m.m[3][2], m.m[3][1], m.m[2][2]);
+  real c4 = diff_prod(m.m[2][1], m.m[3][3], m.m[3][1], m.m[2][3]);
+  real c5 = diff_prod(m.m[2][2], m.m[3][3], m.m[3][2], m.m[2][3]);
+
+  real determinant = scf(InnerProduct(s0, c5, -s1, c4, s2, c3, s3, c2, s5, c0, -s4, c1));
+  if (determinant == 0)
+    return {};
+  real s = 1 / determinant;
+
+  real inv[4][4] = {{s * scf(InnerProduct(m.m[1][1], c5, m.m[1][3], c3, -m.m[1][2], c4)),
+                     s * scf(InnerProduct(-m.m[0][1], c5, m.m[0][2], c4, -m.m[0][3], c3)),
+                     s * scf(InnerProduct(m.m[3][1], s5, m.m[3][3], s3, -m.m[3][2], s4)),
+                     s * scf(InnerProduct(-m.m[2][1], s5, m.m[2][2], s4, -m.m[2][3], s3))},
+
+                    {s * scf(InnerProduct(-m.m[1][0], c5, m.m[1][2], c2, -m.m[1][3], c1)),
+                     s * scf(InnerProduct(m.m[0][0], c5, m.m[0][3], c1, -m.m[0][2], c2)),
+                     s * scf(InnerProduct(-m.m[3][0], s5, m.m[3][2], s2, -m.m[3][3], s1)),
+                     s * scf(InnerProduct(m.m[2][0], s5, m.m[2][3], s1, -m.m[2][2], s2))},
+
+                    {s * scf(InnerProduct(m.m[1][0], c4, m.m[1][3], c0, -m.m[1][1], c2)),
+                     s * scf(InnerProduct(-m.m[0][0], c4, m.m[0][1], c2, -m.m[0][3], c0)),
+                     s * scf(InnerProduct(m.m[3][0], s4, m.m[3][3], s0, -m.m[3][1], s2)),
+                     s * scf(InnerProduct(-m.m[2][0], s4, m.m[2][1], s2, -m.m[2][3], s0))},
+
+                    {s * scf(InnerProduct(-m.m[1][0], c3, m.m[1][1], c1, -m.m[1][2], c0)),
+                     s * scf(InnerProduct(m.m[0][0], c3, m.m[0][2], c0, -m.m[0][1], c1)),
+                     s * scf(InnerProduct(-m.m[3][0], s3, m.m[3][1], s1, -m.m[3][2], s0)),
+                     s * scf(InnerProduct(m.m[2][0], s3, m.m[2][2], s0, -m.m[2][1], s1))}};
+
+  return Matrix4f(inv);
+}
+
 #endif
