@@ -2,6 +2,7 @@
 #define MESH_HPP
 
 #include "math.hpp"
+#include <functional>
 #include <vector>
 #include <list>
 #include <set>
@@ -66,7 +67,8 @@ private:
 public:
   Mesh(std::istream &is);
   void dump(std::ostream &os, int precision = 8) const;
-  Mesh &simplify(real percentage, real epsilon = 0);
+  Mesh &simplify(std::function<void (const Mesh &, real ratio)> k,
+                 std::vector<real> percentage, real epsilon = 0);
 };
 
 #endif

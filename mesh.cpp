@@ -167,7 +167,10 @@ static void add_pair(Point *a, Point *b,
   }
 }
 
-Mesh &Mesh::simplify(real percentage, real epsilon) {
+Mesh &Mesh::simplify(std::function<void (const Mesh &, real ratio)> k,
+                     std::vector<real> percentage, real epsilon) {
+  std::cerr << "initializing ..." << std::endl;
+
   SortedPairs pairs;
   // add edges
   std::set<std::pair<Point *, Point *>> selected;
@@ -195,22 +198,28 @@ Mesh &Mesh::simplify(real percentage, real epsilon) {
     }
   }
 
-  assert(percentage >= 0);
+  std::cerr << "initialization end." << std::endl;
+
+  std::sort(percentage.begin(), percentage.end());
   std::vector<Pair *> removed;
-  size_t n_points = points.size();
-  size_t target = n_points * percentage;
-  while (n_points > target) {
-    auto least = pairs.begin();
-    auto least_p = *least;
-    if (least_p->valid) {
-      least_p->p1->merge(least_p->p2, least_p->opt, pairs);
-      n_points -= 1;
-    } else {
-      pairs.erase(least);
+  size_t n_points = points.size(), n = n_points;
+  do {
+    std::cerr << "next percentage: " << percentage.back() << std::endl;
+    while (n > percentage.back() * n_points) {
+      auto least = pairs.begin();
+      auto least_p = *least;
+      if (least_p->valid) {
+        least_p->p1->merge(least_p->p2, least_p->opt, pairs);
+        n -= 1;
+      } else {
+        pairs.erase(least);
+      }
+      removed.emplace_back(least_p);
+      // delete least_p;
     }
-    removed.emplace_back(least_p);
-    // delete least_p;
-  }
+    k(*this, percentage.back());
+    percentage.pop_back();
+  } while (!percentage.empty());
 
   for (auto &p : pairs) {
     delete p;

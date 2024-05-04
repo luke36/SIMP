@@ -4,19 +4,35 @@
 
 int main(int argc, char *argv[]) {
   if (argc < 4) {
-    std::cerr << "Usage: <executable> <input file> <output file> <ratio> <tolerance>" << std::endl;
+    std::cerr
+      << "Usage: <executable> <input file> <output file prefix> <ratio[,ratio]*> <threshold>"
+      << std::endl;
     exit(1);
   }
   std::ifstream in(argv[1]);
-  std::ofstream out(argv[2]);
   std::istringstream ratio_list(argv[3]);
   std::istringstream threshold(argv[4]);
 
+  std::vector<real> ratios;
   real ratio;
   ratio_list >> ratio;
+  ratios.emplace_back(ratio);
+  while (ratio_list.good()) {
+    char comma;
+    ratio_list >> comma >> ratio;
+    ratios.emplace_back(ratio);
+  }
   real thres;
   threshold >> thres;
   Mesh m(in);
-  m.simplify(ratio, thres);
-  m.dump(out);
+  m.simplify(
+             [&argv](const Mesh &m, real ratio) {
+               std::ostringstream path;
+               path << argv[2] << '_' << ratio << ".obj";
+               std::ofstream out(path.str());
+               m.dump(out);
+               out.close();
+             },
+             ratios, thres);
+  in.close();
 }
