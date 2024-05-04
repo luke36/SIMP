@@ -30,10 +30,7 @@ Point &Point::merge(Point *p, const Vector3f &pos, SortedPairs &pairs) {
   z = pos.z;
   Q += p->Q;
 
-  for (auto &f : p->fs) {
-    f->updateVertex(p, this);
-  }
-  fs.splice(fs.end(), p->fs);
+  p->fa = this;
 
   std::set<std::pair<Point *, Point *>> changed;
   ps.splice(ps.end(), p->ps);
@@ -54,9 +51,6 @@ Point &Point::merge(Point *p, const Vector3f &pos, SortedPairs &pairs) {
 
 Face::Face(Point *p1, Point *p2, Point *p3)
   : p1(p1), p2(p2), p3(p3) {
-  p1->fs.emplace_back(this);
-  p2->fs.emplace_back(this);
-  p3->fs.emplace_back(this);
   Vector3f &&norm = cross(*p2 - *p1, *p3 - *p1);
   norm.normalize();
   // check nan if the face is degenerate
@@ -75,19 +69,6 @@ Face::Face(Point *p1, Point *p2, Point *p3)
   p1->Q += Kp;
   p2->Q += Kp;
   p3->Q += Kp;
-}
-
-Face &Face::updateVertex(Point *x, Point *y) {
-  if (p1 == x) {
-    p1 = y;
-  }
-  if (p2 == x) {
-    p2 = y;
-  }
-  if (p3 == x) {
-    p3 = y;
-  }
-  return *this;
 }
 
 // todo
@@ -167,7 +148,7 @@ static void add_pair(Point *a, Point *b,
   }
 }
 
-Mesh &Mesh::simplify(std::function<void (const Mesh &, real ratio)> k,
+Mesh &Mesh::simplify(std::function<void (Mesh &, real ratio)> k,
                      std::vector<real> percentage, real epsilon) {
   std::cerr << "initializing ..." << std::endl;
 
@@ -280,13 +261,13 @@ static std::tuple<Point *, Point *, Point *> sort3(Point *a, Point *b, Point *c)
   return {a, b, c};
 }
 
-void Mesh::dump(std::ostream &os, int precision) const {
+void Mesh::dump(std::ostream &os, int precision) {
   os << std::setprecision(precision);
 
   std::map<const Point *, size_t> number;
   std::set<std::tuple<Point *, Point *, Point *>> face;
   size_t n = 0;
-  for (const auto &p : points) {
+  for (auto &p : points) {
     if (p.useful()) {
       n += 1;
       number[&p] = n;
@@ -296,7 +277,10 @@ void Mesh::dump(std::ostream &os, int precision) const {
          << p.z << '\n';
     }
   }
-  for (const auto &f : faces) {
+  for (auto &f : faces) {
+    f.p1 = (f.p1)->repr();
+    f.p2 = (f.p2)->repr();
+    f.p3 = (f.p3)->repr();
     auto sorted = sort3(f.p1, f.p2, f.p3);
     if (f.p1 != f.p2 && f.p2 != f.p3 && f.p3 != f.p1 && !face.count(sorted)) {
       face.insert(sorted);

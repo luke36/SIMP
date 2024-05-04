@@ -19,12 +19,20 @@ class Point : public Vector3f {
   friend class Pair;
 private:
   Quadric4f Q;
-  std::list<Face *> fs;
   std::list<Pair *> ps;
+  Point *fa;
 public:
-  Point(real x, real y, real z) : Vector3f(x, y, z) {}
+  Point(real x, real y, real z) : Vector3f(x, y, z), fa(nullptr) {}
   Point &merge(Point *p, const Vector3f &pos, SortedPairs &pairs);
-  bool useful() const { return !fs.empty(); }
+  bool useful() const { return fa == nullptr; }
+  Point *repr() {
+    if (fa == nullptr) {
+      return this;
+    } else {
+      fa = fa->repr();
+      return fa;
+    }
+  }
 };
 
 class Face {
@@ -35,7 +43,6 @@ private:
   Point *p3;
 public:
   Face(Point *p1, Point *p2, Point *p3);
-  Face &updateVertex(Point *x, Point *y);
 };
 
 class Pair {
@@ -66,8 +73,8 @@ private:
   std::list<Face> faces;
 public:
   Mesh(std::istream &is);
-  void dump(std::ostream &os, int precision = 8) const;
-  Mesh &simplify(std::function<void (const Mesh &, real ratio)> k,
+  void dump(std::ostream &os, int precision = 8);
+  Mesh &simplify(std::function<void (Mesh &, real ratio)> k,
                  std::vector<real> percentage, real epsilon = 0);
 };
 

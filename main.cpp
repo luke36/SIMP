@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
   threshold >> thres;
   Mesh m(in);
   m.simplify(
-             [&argv](const Mesh &m, real ratio) {
+             [&argv](Mesh &m, real ratio) {
                std::ostringstream path;
                path << argv[2] << '_' << ratio << ".obj";
                std::ofstream out(path.str());
