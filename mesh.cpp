@@ -158,9 +158,7 @@ static void add_pair(Point *a, Point *b,
                      SortedPairs &ps,
                      std::set<std::pair<Point *, Point *>> &selected) {
   if (a > b) {
-    auto t = a;
-    a = b;
-    b = t;
+    std::swap(a, b);
   }
   if (selected.find({a, b}) == selected.end()) {
     selected.insert({a, b});
@@ -260,10 +258,24 @@ Mesh::Mesh(std::istream &is) {
   }
 }
 
+static std::tuple<Point *, Point *, Point *> sort3(Point *a, Point *b, Point *c) {
+  if (c < b) {
+    std::swap(c, b);
+  }
+  if (b < a) {
+    std::swap(b, a);
+  }
+  if (c < b) {
+    std::swap(c, b);
+  }
+  return {a, b, c};
+}
+
 void Mesh::dump(std::ostream &os, int precision) const {
   os << std::setprecision(precision);
 
   std::map<const Point *, size_t> number;
+  std::set<std::tuple<Point *, Point *, Point *>> face;
   size_t n = 0;
   for (const auto &p : points) {
     if (p.useful()) {
@@ -276,7 +288,9 @@ void Mesh::dump(std::ostream &os, int precision) const {
     }
   }
   for (const auto &f : faces) {
-    if (f.p1 != f.p2 && f.p2 != f.p3 && f.p3 != f.p1) {
+    auto sorted = sort3(f.p1, f.p2, f.p3);
+    if (f.p1 != f.p2 && f.p2 != f.p3 && f.p3 != f.p1 && !face.count(sorted)) {
+      face.insert(sorted);
       os << "f" << ' '
          << number[f.p1] << ' '
          << number[f.p2] << ' '
