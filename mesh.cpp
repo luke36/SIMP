@@ -170,6 +170,7 @@ static void add_pair(Point *a, Point *b,
 }
 
 Mesh &Mesh::simplify(real percentage, real epsilon) {
+  SortedPairs pairs;
   // add edges
   std::set<std::pair<Point *, Point *>> selected;
   for (auto &f : faces) {
@@ -197,6 +198,7 @@ Mesh &Mesh::simplify(real percentage, real epsilon) {
   }
 
   assert(percentage >= 0);
+  std::vector<Pair *> removed;
   size_t n_points = points.size();
   size_t target = n_points * percentage;
   while (n_points > target) {
@@ -208,8 +210,17 @@ Mesh &Mesh::simplify(real percentage, real epsilon) {
     } else {
       pairs.erase(least);
     }
+    removed.emplace_back(least_p);
     // delete least_p;
   }
+
+  for (auto &p : pairs) {
+    delete p;
+  }
+  for  (auto &p : removed) {
+    delete p;
+  }
+
   return *this;
 }
 
@@ -271,11 +282,5 @@ void Mesh::dump(std::ostream &os, int precision) const {
          << number[f.p2] << ' '
          << number[f.p3] << '\n';
     }
-  }
-}
-
-Mesh::~Mesh() {
-  for (auto p : pairs) {
-    delete p;
   }
 }

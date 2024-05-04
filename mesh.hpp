@@ -63,12 +63,10 @@ class Mesh {
 private:
   std::vector<Point> points;
   std::list<Face> faces;
-  SortedPairs pairs;
 public:
   Mesh(std::istream &is);
   void dump(std::ostream &os, int precision = 8) const;
   Mesh &simplify(real percentage, real epsilon = 0);
-  ~Mesh();
 };
 
 #endif
