@@ -10,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(SOURCES
   mesh.cpp
   main.cpp
+  kd.cpp
 )
 
 add_executable(main ${SOURCES})

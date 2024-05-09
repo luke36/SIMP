@@ -1,4 +1,5 @@
 #include "mesh.hpp"
+#include "kd.hpp"
 #include <cassert>
 #include <string>
 #include <iomanip>
@@ -163,19 +164,22 @@ Mesh &Mesh::simplify(std::function<void (Mesh &, real ratio)> k,
 
   // add close vertices
   if (epsilon > 0) {
-    std::vector<Point *> x_sort;
+    std::vector<Point *> pts;
     for (auto &p : points) {
-      x_sort.push_back(&p);
+      pts.push_back(&p);
     }
-    std::sort(x_sort.begin(), x_sort.end(),
-              [](Point *a, Point *b){ return a->x < b->x; });
-    for (auto i = x_sort.begin(); i != x_sort.end(); ++i) {
-      for (auto j = i + 1; j != x_sort.end() && (*j)->x - (*i)->x < epsilon; ++j) {
-        if (distance(**i, **j) < epsilon) {
-          add_pair(*i, *j, pairs, selected);
-          // std::cerr << distance(**i, **j) << ' ' << (*i)->x << std::endl;
+
+    KDTree kdt = buildKDTree(pts);
+    pts.clear();
+
+    for (auto &p : points) {
+      kdt.radiusSearch(p, epsilon, pts);
+      for (auto &q : pts) {
+        if (&p != q) {
+          add_pair(&p, q, pairs, selected);
         }
       }
+      pts.clear();
     }
   }
 
