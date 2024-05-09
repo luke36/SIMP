@@ -1,10 +1,12 @@
 #include "mesh.hpp"
 #include "kd.hpp"
+#include "heap.hpp"
 #include <cassert>
 #include <string>
 #include <iomanip>
 #include <utility>
 #include <algorithm>
+#include <set>
 #include <map>
 
 static void remember_pair(Point *a, Point *b,
@@ -25,7 +27,7 @@ static bool ask_pair(Point *a, Point *b,
   }
 }
 
-Point &Point::merge(Point *p, const Vector3f &pos, SortedPairs &pairs) {
+Point &Point::merge(Point *p, const Vector3f &pos, Heap &pairs) {
   x = pos.x;
   y = pos.y;
   z = pos.z;
@@ -72,7 +74,6 @@ Face::Face(Point *p1, Point *p2, Point *p3)
   p3->Q += Kp;
 }
 
-// todo
 static void compute_optimal(const Vector3f &v1, const Vector3f &v2, const Quadric4f &Q,
                             Vector3f &opt, real &error) {
   real m[4][4] = {{Q.q11, Q.q12, Q.q13, Q.q14},
@@ -120,8 +121,7 @@ Pair::Pair(Point *x, Point *y)
   compute_optimal(*x, *y, x->Q + y->Q, opt, error);
 }
 
-void Pair::updateVertex(Point *x, Point *y, SortedPairs &ps) {
-  ps.erase(this);
+void Pair::updateVertex(Point *x, Point *y, Heap &ps) {
   if (p1 == x) {
     p1 = y;
   }
@@ -130,22 +130,20 @@ void Pair::updateVertex(Point *x, Point *y, SortedPairs &ps) {
   }
   if (p1 != p2) {
     compute_optimal(*p1, *p2, p1->Q + p2->Q, opt, error);
-    ps.insert(this);
+    ps.update(this);
   } else {
     valid = false;
+    ps.erase(this);
   }
 }
 
 static void add_pair(Point *a, Point *b,
-                     SortedPairs &ps,
                      std::set<std::pair<Point *, Point *>> &selected) {
   if (a > b) {
     std::swap(a, b);
   }
   if (selected.find({a, b}) == selected.end()) {
     selected.insert({a, b});
-    Pair *p = new Pair(a, b);
-    ps.insert(p);
   }
 }
 
@@ -153,13 +151,12 @@ Mesh &Mesh::simplify(std::function<void (Mesh &, real ratio)> k,
                      std::vector<real> percentage, real epsilon) {
   std::cerr << "initializing ..." << std::endl;
 
-  SortedPairs pairs;
   // add edges
   std::set<std::pair<Point *, Point *>> selected;
   for (auto &f : faces) {
-    add_pair(f.p1, f.p2, pairs, selected);
-    add_pair(f.p2, f.p3, pairs, selected);
-    add_pair(f.p3, f.p1, pairs, selected);
+    add_pair(f.p1, f.p2, selected);
+    add_pair(f.p2, f.p3, selected);
+    add_pair(f.p3, f.p1, selected);
   }
 
   // add close vertices
@@ -176,12 +173,18 @@ Mesh &Mesh::simplify(std::function<void (Mesh &, real ratio)> k,
       kdt.radiusSearch(p, epsilon, pts);
       for (auto &q : pts) {
         if (&p != q) {
-          add_pair(&p, q, pairs, selected);
+          add_pair(&p, q, selected);
         }
       }
       pts.clear();
     }
   }
+
+  std::vector<Pair *> pre_heap;
+  for (auto &pp : selected) {
+    pre_heap.push_back(new Pair(pp.first, pp.second));
+  }
+  Heap pairs(std::move(pre_heap));
 
   std::cerr << "initialization end." << std::endl;
 
@@ -191,24 +194,19 @@ Mesh &Mesh::simplify(std::function<void (Mesh &, real ratio)> k,
   do {
     std::cerr << "next percentage: " << percentage.back() << std::endl;
     while (n > percentage.back() * n_points) {
-      auto least = pairs.begin();
-      auto least_p = *least;
-      if (least_p->valid) {
-        least_p->p1->merge(least_p->p2, least_p->opt, pairs);
+      auto least = pairs.top();
+      if (least->valid) {
+        least->p1->merge(least->p2, least->opt, pairs);
         n -= 1;
       } else {
         pairs.erase(least);
       }
-      removed.emplace_back(least_p);
-      // delete least_p;
+      removed.emplace_back(least);
     }
     k(*this, percentage.back());
     percentage.pop_back();
   } while (!percentage.empty());
 
-  for (auto &p : pairs) {
-    delete p;
-  }
   for  (auto &p : removed) {
     delete p;
   }

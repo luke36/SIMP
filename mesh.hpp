@@ -5,14 +5,11 @@
 #include <functional>
 #include <vector>
 #include <list>
-#include <set>
 #include <iostream>
 
 class Face;
 class Pair;
-struct compare_error;
-
-typedef std::set<Pair *, compare_error> SortedPairs;
+class Heap;
 
 class Point : public Vector3f {
   friend class Face;
@@ -23,7 +20,7 @@ private:
   Point *fa;
 public:
   Point(real x, real y, real z) : Vector3f(x, y, z), fa(nullptr) {}
-  Point &merge(Point *p, const Vector3f &pos, SortedPairs &pairs);
+  Point &merge(Point *p, const Vector3f &pos, Heap &pairs);
   bool useful() const { return fa == nullptr; }
   Point *repr() {
     if (fa == nullptr) {
@@ -48,8 +45,9 @@ public:
 class Pair {
   friend class Point;
   friend class Mesh;
-  friend struct compare_error;
+  friend class Heap;
 private:
+  size_t id; // index in the heap
   Point *p1;
   Point *p2;
   Vector3f opt;
@@ -57,14 +55,8 @@ private:
 public:
   bool valid;
   Pair(Point *p1, Point *p2);
-  void updateVertex(Point *x, Point *y, SortedPairs &ps);
+  void updateVertex(Point *x, Point *y, Heap &ps);
   bool degenerate() const { return p1 == p2; }
-};
-
-struct compare_error {
-  bool operator()(const Pair *p, const Pair *q) const {
-    return p->error < q->error || (p->error == q->error && p < q);
-  }
 };
 
 class Mesh {
